@@ -18,7 +18,7 @@ subversion-docker_{{ docker_name }}-apache-conf:
     - source: salt://subversion/templates/apache_svn_basic.conf
     - template: jinja
     - defaults:
-        path: {{ docker.docker_path }}
+        path: {{ basic.path }}
         {% if 'access' in basic %}
         {% do docker_binds.append(basic.access ~ ':' ~ basic.docker_access) %}
         access: {{ basic.docker_access }}
@@ -28,6 +28,8 @@ subversion-docker_{{ docker_name }}-apache-conf:
         users: {{ basic.docker_users }}
         {% endif %}
         svn_repos: {{ docker.docker_repos }}
+    - watch_in:
+      - dockerng: {{ docker_name }}
 {% endif %}
 
 {% set image = docker.image if ':' in docker.image else docker.image ~ ':latest' %}
@@ -41,8 +43,6 @@ subversion-docker-running_{{ docker_name }}:
       {% for bind in docker_binds %}
       - {{ bind }}
       {% endfor%}
-    - require:
-      - file: {{ docker.apache_conf }}
 
 subversion-docker_{{ docker_name }}_image_{{ image }}:
   cmd.run:
