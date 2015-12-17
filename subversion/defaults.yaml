@@ -1,7 +1,7 @@
 docker:
   image: '7kbird/subversion'
   docker_repos: '/srv/svn/repos'
-  docker_apache_conf: '/srv/apache/config/svn.conf'
+  docker_apache_conf: '/srv/apache/mods/dav_svn.conf'
   docker_http_port: '80'
 basic:
   path: '/'
