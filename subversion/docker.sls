@@ -3,11 +3,17 @@
 {% for docker_name in salt['pillar.get']('subversion:dockers', {}) %}
 {% set docker = salt['pillar.get']('subversion:dockers:' ~ docker_name,
                                    default=defaults.docker, merge=True) %}
-{% do docker.update({'apache_conf':'/srv/svn/docker/' ~ docker_name ~ '/apache_svn.conf'}) %}
-{% set docker_binds = [docker.apache_conf ~ ':' ~ docker.docker_apache_conf,
-                       docker.repos ~ ':' ~ docker.docker_repos] %}
+
+{% set docker_binds = [] %}
+{% set docker_envs = {} %}
+{% set docker_links = [] %}
+{% if 'repos' in docker %}
+  {% do docker_binds.append(docker.repos ~ ':' ~ docker.docker_repos) %}
+{% endif %}
 
 {% if 'basic' in docker %}
+{% do docker.update({'apache_conf':'/srv/svn/docker/' ~ docker_name ~ '/apache_svn.conf'}) %}
+{% do docker_binds.append(docker.apache_conf ~ ':' ~ docker.docker_apache_conf) %}
 {% set basic = salt['pillar.get']('subversion:dockers:' ~ docker_name ~ ':basic', 
                                          default=defaults.basic, merge=True) %}
 
@@ -32,6 +38,15 @@ subversion-docker_{{ docker_name }}-apache-conf:
       - dockerng: {{ docker_name }}
 {% endif %}
 
+{% if 'redmine' in docker %}
+  {% set db = docker.redmine.database %}
+  {% do docker_envs.update({'REDMINE_DB_NAME':db.name, 'REDMINE_DB_USER':db.user, 'REDMINE_DB_PASS':db.pass}) %}
+  {% do docker_envs.update({'REDMINE_DB_ADAPTER':db.adapter}) %}
+  {% if 'docker' in db %}
+    {% do docker_links.append(db.docker ~ ':' ~ db.adapter)%}
+  {% endif %}
+{% endif %}
+
 {% set image = docker.image if ':' in docker.image else docker.image ~ ':latest' %}
 subversion-docker-running_{{ docker_name }}:
   dockerng.running:
@@ -43,6 +58,16 @@ subversion-docker-running_{{ docker_name }}:
       {% for bind in docker_binds %}
       - {{ bind }}
       {% endfor%}
+    - environment:
+      {% for env_name, env_val in docker_envs.items() %}
+      - {{ env_name }}: {{ env_val }}
+      {% endfor %}
+    {% if docker_links %}
+    - links:
+      {% for link in docker_links %}
+      - {{ link }}
+      {% endfor %}
+    {% endif %}
 
 subversion-docker_{{ docker_name }}_image_{{ image }}:
   cmd.run:
